@@ -22,8 +22,44 @@
         button:active { transform: scale(0.98); }
         button:disabled { background: #333; color: #666; cursor: not-allowed; }
         canvas { max-width: 100%; height: auto; margin-top: 20px; border: 1px solid #333; display: none; }
-        .footer { margin-top: 40px; text-align: center; font-size: 12px; color: #555; }
-        .download-btn { display: inline-block; margin-top: 10px; color: var(--primary); text-decoration: none; border: 1px solid var(--primary); padding: 8px 16px; border-radius: 20px; transition: 0.3s; }
+        .footer {
+            margin-top: 30px;
+            text-align: center;
+            width: 100%;
+            padding-bottom: 20px;
+        }
+        .promo-box {
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid #333;
+            border-radius: 12px;
+            padding: 15px;
+            margin-top: 20px;
+            text-align: center;
+        }
+
+        .promo-text {
+            color: #fff;
+            font-size: 14px;
+            margin-bottom: 10px;
+            display: block;
+        }
+
+        .download-btn {
+            display: block; /* 变成块级元素，更宽 */
+            width: 80%;
+            margin: 0 auto;
+            background: linear-gradient(45deg, #007AFF, #00C6FF); /* 苹果蓝风格 */
+            color: white;
+            text-decoration: none;
+            padding: 12px;
+            border-radius: 25px;
+            font-weight: bold;
+            font-family: sans-serif;
+            box-shadow: 0 4px 15px rgba(0, 122, 255, 0.4);
+            transition: transform 0.2s;
+        }
+
+        .download-btn:active { transform: scale(0.95); }
     </style>
 </head>
 <body>
@@ -50,11 +86,17 @@
     </div>
 
     <div class="footer">
-        <p>🔒 100% 本地计算，图片永不上传服务器</p>
-        <!-- 记得把这里换成你真实的 App Store 链接 -->
-        <a href="https://apps.apple.com/app/id644xxxxxx" class="download-btn"> 下载 iOS 完整版</a>
-    </div>
+        <p style="font-size: 12px; color: #666;">🔒 100% 离线计算，安全无痕</p>
 
+        <div class="promo-box">
+            <span class="promo-text">想体验更丝滑的 <b>流光扫描</b> 动画？<br>想要 <b>批量处理</b> 几十张照片？</span>
+
+            <!-- 这里填你真实的 App Store 链接 -->
+            <a href="https://apps.apple.com/app/id6441234567" class="download-btn">
+                 下载 iOS 客户端
+            </a>
+        </div>
+    </div>
     <!-- 1. 配置 Module -->
     <script>
         var Module = {
