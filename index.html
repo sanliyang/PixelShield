@@ -4,8 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>PixelShield 在线解密终端</title>
-    <!-- 样式保持不变，此处省略，直接复制之前的 style 即可 -->
     <style>
+        /* 样式保持不变，为了节省篇幅这里省略，保留你之前的样式即可 */
         :root { --primary: #0f0; --bg: #000; --panel: #111; }
         body { background-color: var(--bg); color: var(--primary); font-family: 'Courier New', Courier, monospace; display: flex; flex-direction: column; align-items: center; min-height: 100vh; margin: 0; padding: 20px; box-sizing: border-box; }
         h1 { margin: 10px 0; text-shadow: 0 0 10px var(--primary); letter-spacing: 2px; }
@@ -19,7 +19,8 @@
         input[type="password"] { width: 100%; padding: 12px; background: #000; border: 1px solid #333; color: #fff; font-family: inherit; font-size: 16px; box-sizing: border-box; }
         input[type="password"]:focus { outline: none; border-color: var(--primary); }
         button { width: 100%; padding: 15px; margin-top: 10px; background: var(--primary); color: #000; border: none; font-weight: bold; font-size: 16px; cursor: pointer; text-transform: uppercase; letter-spacing: 1px; }
-        button:disabled { background: #333; color: #666; cursor: wait; }
+        button:active { transform: scale(0.98); }
+        button:disabled { background: #333; color: #666; cursor: not-allowed; }
         canvas { max-width: 100%; height: auto; margin-top: 20px; border: 1px solid #333; display: none; }
         .footer { margin-top: 40px; text-align: center; font-size: 12px; color: #555; }
         .download-btn { display: inline-block; margin-top: 10px; color: var(--primary); text-decoration: none; border: 1px solid var(--primary); padding: 8px 16px; border-radius: 20px; transition: 0.3s; }
@@ -42,56 +43,34 @@
             <input type="password" id="password" placeholder="输入密钥 (Key)">
         </div>
 
-        <button id="actionBtn" onclick="processImage(false)" disabled>正在初始化引擎...</button>
+        <!-- ⚠️ 默认不禁用，文字直接写好 -->
+        <button id="actionBtn" onclick="processImage(false)">执行还原 (DECRYPT)</button>
 
         <canvas id="canvas"></canvas>
     </div>
 
     <div class="footer">
         <p>🔒 100% 本地计算，图片永不上传服务器</p>
-        <a href="#" class="download-btn"> 下载 iOS 完整版</a>
+        <!-- 记得把这里换成你真实的 App Store 链接 -->
+        <a href="https://apps.apple.com/app/id644xxxxxx" class="download-btn"> 下载 iOS 完整版</a>
     </div>
 
     <!-- 1. 配置 Module -->
-        <!-- 1. 配置 Module (修复路径问题) -->
     <script>
         var Module = {
-            // ⚠️ 关键修复：告诉浏览器 .wasm 文件就在当前目录下
             locateFile: function(path, prefix) {
-                if (path.endsWith('.wasm')) {
-                    // 强制返回相对路径，不使用 prefix (防止路径错乱)
-                    return 'pixelshield.wasm';
-                }
+                if (path.endsWith('.wasm')) return './pixelshield.wasm';
                 return prefix + path;
             },
             onRuntimeInitialized: function() {
-                console.log('✅ WASM Runtime Initialized');
-                // 再次检查内存
-                if (Module.HEAPU8) {
-                    const btn = document.getElementById('actionBtn');
-                    btn.disabled = false;
-                    btn.innerText = '执行还原 (DECRYPT)';
-                    console.log('✅ Memory Ready');
-                } else {
-                    alert('严重错误：WASM 内存未分配。请检查 .wasm 文件是否存在。');
-                }
-            },
-            // ⚠️ 显示真实的加载错误
-            onAbort: function(err) {
-                console.error('❌ WASM Aborted:', err);
-                alert('引擎加载失败，请看控制台 (F12) 的红色报错');
-            },
-            // 显示加载进度
-            setStatus: function(text) {
-                if (text === 'Running...') return; // 忽略运行中状态
-                console.log('Status:', text);
-                const btn = document.getElementById('actionBtn');
-                if (btn) btn.innerText = text || '引擎加载中...';
+                console.log('✅ WASM Engine Ready');
+                // 双重保险：加载完了再设一次文字
+                document.getElementById('actionBtn').innerText = '执行还原 (DECRYPT)';
             }
         };
     </script>
 
-    <!-- 2. 引入 JS (现在是同级目录) -->
+    <!-- 2. 引入 JS -->
     <script src="pixelshield.js"></script>
 
     <!-- 3. 逻辑 -->
@@ -110,11 +89,14 @@
                     const canvas = document.getElementById('canvas');
                     canvas.width = img.width;
                     canvas.height = img.height;
-                    canvas.getContext('2d').drawImage(img, 0, 0);
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, 0, 0);
                     canvas.style.display = 'block';
-                    document.getElementById('dropZone').innerHTML = `✅ 已加载: ${file.name}`;
-                    document.getElementById('dropZone').style.borderColor = '#0f0';
-                    document.getElementById('dropZone').style.color = '#0f0';
+
+                    const dz = document.getElementById('dropZone');
+                    dz.innerHTML = `✅ 已加载: ${file.name}`;
+                    dz.style.borderColor = '#0f0';
+                    dz.style.color = '#0f0';
                 };
                 img.src = evt.target.result;
             };
@@ -126,8 +108,12 @@
             const password = document.getElementById('password').value;
             if (!password) { alert('请输入密钥'); return; }
 
-            // 双重检查
-            if (!Module.HEAPU8) { alert('引擎未就绪，请稍候'); return; }
+            // ⚠️ 点击时检查引擎状态
+            // 如果 HEAPU8 不存在，说明还在加载或者失败了
+            if (!Module.HEAPU8) {
+                alert('引擎正在初始化或加载失败，请刷新页面重试');
+                return;
+            }
 
             const canvas = document.getElementById('canvas');
             const ctx = canvas.getContext('2d', { willReadFrequently: true });
@@ -135,7 +121,6 @@
             let w = originalImage.width;
             let h = originalImage.height;
 
-            // 自动去水印逻辑
             if (!isEncrypt && h > FOOTER_PIXELS) {
                 h -= FOOTER_PIXELS;
             }
@@ -150,19 +135,15 @@
             try {
                 const len = dataBytes.length;
                 const ptr = Module._malloc(len);
-                
-                // 写入数据
                 Module.HEAPU8.set(dataBytes, ptr);
 
-                // 写入密码
                 const passLen = Module.lengthBytesUTF8(password) + 1;
                 const passPtr = Module._malloc(passLen);
                 Module.stringToUTF8(password, passPtr, passLen);
 
-                // 调用 C++ (必须带下划线)
+                // 调用 C++
                 Module._process_image_wasm(ptr, w, h, passPtr, isEncrypt);
 
-                // 读取结果
                 const result = Module.HEAPU8.subarray(ptr, ptr + len);
                 imageData.data.set(result);
                 ctx.putImageData(imageData, 0, 0);
@@ -172,7 +153,7 @@
 
             } catch (e) {
                 console.error(e);
-                alert('计算出错');
+                alert('处理异常：' + e);
             }
         }
     </script>
