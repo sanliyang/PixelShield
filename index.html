@@ -55,24 +55,35 @@
     <!-- 1. 配置 Module -->
     <script>
     var Module = {
+        // ⚠️ 新增：强制指定 wasm 文件路径
+        locateFile: function(path, prefix) {
+            if (path.endsWith('.wasm')) {
+                return 'pixelshield.wasm';
+            }
+            return prefix + path;
+        },
         onRuntimeInitialized: function() {
             console.log('✅ JS Glue Loaded');
-            
-            // ⚠️ 调试：打印看看 HEAPU8 到底在不在
-            console.log('Memory Check:', Module.HEAPU8); 
-            
+            // 打印一下内存状态
+            console.log('Memory Check:', Module.HEAPU8);
+
             if (Module.HEAPU8) {
                 console.log('✅ WASM Memory Ready!');
                 const btn = document.getElementById('actionBtn');
                 btn.disabled = false;
                 btn.innerText = '执行还原 (DECRYPT)';
             } else {
-                console.error('❌ WASM Memory is MISSING. Check Server MIME Type.');
-                alert('引擎内存初始化失败，请使用 server.py 启动');
+                alert('引擎加载失败：内存未分配');
             }
         },
+        // ⚠️ 新增：捕获加载错误
         onAbort: function(err) {
-            console.error('WASM Aborted:', err);
+            console.error('❌ 引擎崩溃:', err);
+            alert('引擎加载崩溃，请检查控制台错误信息');
+        },
+        // ⚠️ 新增：显示加载状态
+        setStatus: function(text) {
+            console.log('Status:', text);
         }
     };
     </script>
