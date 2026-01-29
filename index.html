@@ -53,39 +53,42 @@
     </div>
 
     <!-- 1. 配置 Module -->
+        <!-- 1. 配置 Module (修复路径问题) -->
     <script>
-    var Module = {
-        // ⚠️ 新增：强制指定 wasm 文件路径
-        locateFile: function(path, prefix) {
-            if (path.endsWith('.wasm')) {
-                return 'pixelshield.wasm';
-            }
-            return prefix + path;
-        },
-        onRuntimeInitialized: function() {
-            console.log('✅ JS Glue Loaded');
-            // 打印一下内存状态
-            console.log('Memory Check:', Module.HEAPU8);
-
-            if (Module.HEAPU8) {
-                console.log('✅ WASM Memory Ready!');
+        var Module = {
+            // ⚠️ 关键修复：告诉浏览器 .wasm 文件就在当前目录下
+            locateFile: function(path, prefix) {
+                if (path.endsWith('.wasm')) {
+                    // 强制返回相对路径，不使用 prefix (防止路径错乱)
+                    return 'pixelshield.wasm';
+                }
+                return prefix + path;
+            },
+            onRuntimeInitialized: function() {
+                console.log('✅ WASM Runtime Initialized');
+                // 再次检查内存
+                if (Module.HEAPU8) {
+                    const btn = document.getElementById('actionBtn');
+                    btn.disabled = false;
+                    btn.innerText = '执行还原 (DECRYPT)';
+                    console.log('✅ Memory Ready');
+                } else {
+                    alert('严重错误：WASM 内存未分配。请检查 .wasm 文件是否存在。');
+                }
+            },
+            // ⚠️ 显示真实的加载错误
+            onAbort: function(err) {
+                console.error('❌ WASM Aborted:', err);
+                alert('引擎加载失败，请看控制台 (F12) 的红色报错');
+            },
+            // 显示加载进度
+            setStatus: function(text) {
+                if (text === 'Running...') return; // 忽略运行中状态
+                console.log('Status:', text);
                 const btn = document.getElementById('actionBtn');
-                btn.disabled = false;
-                btn.innerText = '执行还原 (DECRYPT)';
-            } else {
-                alert('引擎加载失败：内存未分配');
+                if (btn) btn.innerText = text || '引擎加载中...';
             }
-        },
-        // ⚠️ 新增：捕获加载错误
-        onAbort: function(err) {
-            console.error('❌ 引擎崩溃:', err);
-            alert('引擎加载崩溃，请检查控制台错误信息');
-        },
-        // ⚠️ 新增：显示加载状态
-        setStatus: function(text) {
-            console.log('Status:', text);
-        }
-    };
+        };
     </script>
 
     <!-- 2. 引入 JS (现在是同级目录) -->
