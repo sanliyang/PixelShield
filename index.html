@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PixelShield 在线解密终端</title>
+    <!-- 样式保持不变，此处省略，直接复制之前的 style 即可 -->
+    <style>
+        :root { --primary: #0f0; --bg: #000; --panel: #111; }
+        body { background-color: var(--bg); color: var(--primary); font-family: 'Courier New', Courier, monospace; display: flex; flex-direction: column; align-items: center; min-height: 100vh; margin: 0; padding: 20px; box-sizing: border-box; }
+        h1 { margin: 10px 0; text-shadow: 0 0 10px var(--primary); letter-spacing: 2px; }
+        .subtitle { color: #666; font-size: 12px; margin-bottom: 30px; }
+        .container { width: 100%; max-width: 400px; background: var(--panel); border: 1px solid #333; padding: 20px; border-radius: 12px; box-shadow: 0 0 20px rgba(0,255,0,0.1); }
+        .input-group { margin-bottom: 15px; }
+        label { display: block; margin-bottom: 5px; color: #888; font-size: 12px; }
+        input[type="file"] { display: none; }
+        .file-label { display: block; width: 100%; padding: 40px 0; border: 2px dashed #333; text-align: center; color: #666; cursor: pointer; transition: all 0.3s; box-sizing: border-box; }
+        .file-label:hover { border-color: var(--primary); color: var(--primary); }
+        input[type="password"] { width: 100%; padding: 12px; background: #000; border: 1px solid #333; color: #fff; font-family: inherit; font-size: 16px; box-sizing: border-box; }
+        input[type="password"]:focus { outline: none; border-color: var(--primary); }
+        button { width: 100%; padding: 15px; margin-top: 10px; background: var(--primary); color: #000; border: none; font-weight: bold; font-size: 16px; cursor: pointer; text-transform: uppercase; letter-spacing: 1px; }
+        button:disabled { background: #333; color: #666; cursor: wait; }
+        canvas { max-width: 100%; height: auto; margin-top: 20px; border: 1px solid #333; display: none; }
+        .footer { margin-top: 40px; text-align: center; font-size: 12px; color: #555; }
+        .download-btn { display: inline-block; margin-top: 10px; color: var(--primary); text-decoration: none; border: 1px solid var(--primary); padding: 8px 16px; border-radius: 20px; transition: 0.3s; }
+    </style>
+</head>
+<body>
+
+    <h1>PixelShield</h1>
+    <span class="subtitle">OFFLINE DECRYPTION PROTOCOL</span>
+
+    <div class="container">
+        <div class="input-group">
+            <label class="file-label" id="dropZone">
+                点击或拖拽上传加密图片<br>
+                <input type="file" id="fileInput" accept="image/*">
+            </label>
+        </div>
+
+        <div class="input-group">
+            <input type="password" id="password" placeholder="输入密钥 (Key)">
+        </div>
+
+        <button id="actionBtn" onclick="processImage(false)" disabled>正在初始化引擎...</button>
+
+        <canvas id="canvas"></canvas>
+    </div>
+
+    <div class="footer">
+        <p>🔒 100% 本地计算，图片永不上传服务器</p>
+        <a href="#" class="download-btn"> 下载 iOS 完整版</a>
+    </div>
+
+    <!-- 1. 配置 Module -->
+    <script>
+    var Module = {
+        onRuntimeInitialized: function() {
+            console.log('✅ JS Glue Loaded');
+            
+            // ⚠️ 调试：打印看看 HEAPU8 到底在不在
+            console.log('Memory Check:', Module.HEAPU8); 
+            
+            if (Module.HEAPU8) {
+                console.log('✅ WASM Memory Ready!');
+                const btn = document.getElementById('actionBtn');
+                btn.disabled = false;
+                btn.innerText = '执行还原 (DECRYPT)';
+            } else {
+                console.error('❌ WASM Memory is MISSING. Check Server MIME Type.');
+                alert('引擎内存初始化失败，请使用 server.py 启动');
+            }
+        },
+        onAbort: function(err) {
+            console.error('WASM Aborted:', err);
+        }
+    };
+    </script>
+
+    <!-- 2. 引入 JS (现在是同级目录) -->
+    <script src="pixelshield.js"></script>
+
+    <!-- 3. 逻辑 -->
+    <script>
+        let originalImage = null;
+        const FOOTER_PIXELS = 200;
+
+        document.getElementById('fileInput').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = function(evt) {
+                const img = new Image();
+                img.onload = function() {
+                    originalImage = img;
+                    const canvas = document.getElementById('canvas');
+                    canvas.width = img.width;
+                    canvas.height = img.height;
+                    canvas.getContext('2d').drawImage(img, 0, 0);
+                    canvas.style.display = 'block';
+                    document.getElementById('dropZone').innerHTML = `✅ 已加载: ${file.name}`;
+                    document.getElementById('dropZone').style.borderColor = '#0f0';
+                    document.getElementById('dropZone').style.color = '#0f0';
+                };
+                img.src = evt.target.result;
+            };
+            reader.readAsDataURL(file);
+        });
+
+        function processImage(isEncrypt) {
+            if (!originalImage) { alert('请先上传图片'); return; }
+            const password = document.getElementById('password').value;
+            if (!password) { alert('请输入密钥'); return; }
+
+            // 双重检查
+            if (!Module.HEAPU8) { alert('引擎未就绪，请稍候'); return; }
+
+            const canvas = document.getElementById('canvas');
+            const ctx = canvas.getContext('2d', { willReadFrequently: true });
+
+            let w = originalImage.width;
+            let h = originalImage.height;
+
+            // 自动去水印逻辑
+            if (!isEncrypt && h > FOOTER_PIXELS) {
+                h -= FOOTER_PIXELS;
+            }
+
+            canvas.width = w;
+            canvas.height = h;
+            ctx.drawImage(originalImage, 0, 0, w, h, 0, 0, w, h);
+
+            const imageData = ctx.getImageData(0, 0, w, h);
+            const dataBytes = imageData.data;
+
+            try {
+                const len = dataBytes.length;
+                const ptr = Module._malloc(len);
+                
+                // 写入数据
+                Module.HEAPU8.set(dataBytes, ptr);
+
+                // 写入密码
+                const passLen = Module.lengthBytesUTF8(password) + 1;
+                const passPtr = Module._malloc(passLen);
+                Module.stringToUTF8(password, passPtr, passLen);
+
+                // 调用 C++ (必须带下划线)
+                Module._process_image_wasm(ptr, w, h, passPtr, isEncrypt);
+
+                // 读取结果
+                const result = Module.HEAPU8.subarray(ptr, ptr + len);
+                imageData.data.set(result);
+                ctx.putImageData(imageData, 0, 0);
+
+                Module._free(ptr);
+                Module._free(passPtr);
+
+            } catch (e) {
+                console.error(e);
+                alert('计算出错');
+            }
+        }
+    </script>
+</body>
+</html>
